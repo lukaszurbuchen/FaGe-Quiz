@@ -1,0 +1,613 @@
+<!DOCTYPE html>
+<html lang="de-CH">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>FaGe-Quiz · Bewegungssystem</title>
+<style>
+  :root{
+    --bg:#f6f4ef; --card:#fff; --ink:#1f2328; --muted:#6b7280; --line:#e5e1d8;
+    --accent:#b5483a; --accent-soft:#f6e3df; --ok:#2f7d4f; --ok-soft:#dff1e6; --bad:#b42318; --bad-soft:#fde4e1;
+  }
+  @media (prefers-color-scheme: dark){
+    :root{--bg:#16181c;--card:#20242a;--ink:#eceff3;--muted:#9aa3ad;--line:#333941;
+      --accent:#e07a68;--accent-soft:#3a2622;--ok:#5cc28a;--ok-soft:#1e3328;--bad:#f08070;--bad-soft:#3b211e;}
+  }
+  *{box-sizing:border-box}
+  body{margin:0;font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;background:var(--bg);color:var(--ink);line-height:1.45}
+  .wrap{max-width:680px;margin:0 auto;padding:18px 16px 60px}
+  header h1{font-size:1.35rem;margin:4px 0 2px}
+  header p{margin:0 0 14px;color:var(--muted);font-size:.92rem}
+  .tabs{display:flex;gap:6px;margin-bottom:16px;flex-wrap:wrap}
+  .tabs button{flex:1;min-width:100px}
+  button{font:inherit;border:1px solid var(--line);background:var(--card);color:var(--ink);padding:10px 12px;border-radius:10px;cursor:pointer}
+  button.primary{background:var(--accent);border-color:var(--accent);color:#fff;font-weight:600}
+  button.active{background:var(--accent-soft);border-color:var(--accent);color:var(--ink);font-weight:600}
+  button:disabled{opacity:.5;cursor:default}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:18px;margin-bottom:14px}
+  .label{font-size:.78rem;text-transform:uppercase;letter-spacing:.04em;color:var(--muted);margin-bottom:6px}
+  .chips{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:12px}
+  .chips button{padding:7px 11px;font-size:.9rem}
+  .q{font-size:1.1rem;font-weight:600;margin:4px 0 14px}
+  .opts{display:grid;gap:8px}
+  .opts button{text-align:left;padding:12px 14px}
+  .opts button.ok{background:var(--ok-soft);border-color:var(--ok)}
+  .opts button.bad{background:var(--bad-soft);border-color:var(--bad)}
+  .fb{margin-top:12px;padding:12px;border-radius:10px;font-size:.95rem}
+  .fb.ok{background:var(--ok-soft)} .fb.bad{background:var(--bad-soft)}
+  .bar{height:6px;background:var(--line);border-radius:4px;overflow:hidden;margin-bottom:12px}
+  .bar>div{height:100%;background:var(--accent);transition:width .25s}
+  .row{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap}
+  .muted{color:var(--muted);font-size:.9rem}
+  .big{font-size:2.2rem;font-weight:700;margin:6px 0}
+  .flash{min-height:200px;display:flex;flex-direction:column;justify-content:center;align-items:center;text-align:center;cursor:pointer;user-select:none}
+  .flash .front{font-size:1.2rem;font-weight:600}
+  .flash .back{margin-top:14px;font-size:1.05rem;color:var(--accent);font-weight:600}
+  .flash .hint{margin-top:14px}
+  ul.wrong{padding-left:18px;margin:8px 0 0} ul.wrong li{margin-bottom:8px}
+  .hidden{display:none}
+  .fig{display:flex;justify-content:center;background:#fbf9f4;border:1px solid var(--line);border-radius:12px;padding:8px;margin-bottom:12px}
+  .fig svg{width:100%;max-height:340px}
+  .thumb svg{width:120px;height:auto;max-height:120px;background:#fbf9f4;border-radius:8px;border:1px solid var(--line);margin-top:4px}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>🦴 Bewegungssystem – Lernquiz</h1>
+    <p>FaGe 1. Lehrjahr · Skelett, Knochen, Muskeln, Sehnen</p>
+  </header>
+
+  <div class="tabs">
+    <button data-mode="quiz" class="active">Quiz</button>
+    <button data-mode="images">Bilder</button>
+    <button data-mode="terms">Fachbegriffe</button>
+    <button data-mode="cards">Lernkarten</button>
+  </div>
+
+  <!-- SETUP -->
+  <section id="setup" class="card">
+    <div class="label">Thema</div>
+    <div class="chips" id="topicChips"></div>
+    <div id="dirBox" class="hidden">
+      <div class="label">Richtung</div>
+      <div class="chips" id="dirChips">
+        <button data-dir="de2lat" class="active">Deutsch → Latein</button>
+        <button data-dir="lat2de">Latein → Deutsch</button>
+        <button data-dir="mix">Gemischt</button>
+      </div>
+    </div>
+    <div id="countBox">
+      <div class="label">Anzahl Fragen</div>
+      <div class="chips" id="countChips">
+        <button data-n="10" class="active">10</button>
+        <button data-n="20">20</button>
+        <button data-n="999">Alle</button>
+      </div>
+    </div>
+    <button class="primary" id="startBtn" style="width:100%">Los geht's</button>
+    <p class="muted" id="bestLine" style="margin:10px 0 0"></p>
+  </section>
+
+  <!-- QUIZ -->
+  <section id="quiz" class="hidden">
+    <div class="bar"><div id="progress"></div></div>
+    <div class="card">
+      <div class="row"><span class="muted" id="qCount"></span><span class="muted" id="qScore"></span></div>
+      <div class="fig hidden" id="qImg"></div>
+      <div class="q" id="qText"></div>
+      <div class="opts" id="qOpts"></div>
+      <div id="qFb"></div>
+    </div>
+    <div class="row">
+      <button id="quitBtn">Abbrechen</button>
+      <button class="primary hidden" id="nextBtn">Weiter →</button>
+    </div>
+  </section>
+
+  <!-- RESULT -->
+  <section id="result" class="hidden">
+    <div class="card" style="text-align:center">
+      <div class="label">Resultat</div>
+      <div class="big" id="rScore"></div>
+      <div id="rMsg"></div>
+    </div>
+    <div class="card" id="rWrongBox">
+      <div class="label">Das solltest du nochmals anschauen</div>
+      <ul class="wrong" id="rWrong"></ul>
+    </div>
+    <div class="row">
+      <button id="againBtn">Zurück</button>
+      <button class="primary" id="retryWrongBox">Nur Fehler wiederholen</button>
+    </div>
+  </section>
+
+  <!-- CARDS -->
+  <section id="cards" class="hidden">
+    <div class="row" style="margin-bottom:10px"><span class="muted" id="cCount"></span><span class="muted">Tippen zum Umdrehen</span></div>
+    <div class="card flash" id="flash">
+      <div class="front" id="cFront"></div>
+      <div class="back hidden" id="cBack"></div>
+      <div class="hint muted" id="cHint">?</div>
+    </div>
+    <div class="row">
+      <button id="cBackBtn">Zurück</button>
+      <div style="display:flex;gap:8px">
+        <button id="cAgain">Nochmals ↺</button>
+        <button class="primary" id="cKnow">Gewusst ✓</button>
+      </div>
+    </div>
+  </section>
+</div>
+
+<script>
+/* ============ INHALT ============ */
+const TOPICS = {
+  skelett:  "Skelett",
+  knochen:  "Knochenaufbau",
+  muskeln:  "Muskeln",
+  sehnen:   "Sehnen & Schleimbeutel",
+  funktion: "Muskelfunktion"
+};
+
+// Fachbegriffe: [Deutsch, Latein, Thema]
+const TERMS = [
+  ["Schädel","Cranium","skelett"],
+  ["Schlüsselbein","Clavicula","skelett"],
+  ["Schulterblatt","Scapula","skelett"],
+  ["Brustkorb","Thorax","skelett"],
+  ["Brustbein","Sternum","skelett"],
+  ["Rippen","Costae","skelett"],
+  ["Brustwirbel","Vertebrae thoracales","skelett"],
+  ["Kreuzbein","Os sacrum","skelett"],
+  ["Beckenkamm","Crista iliaca","skelett"],
+  ["Hüftbein","Os coxae","skelett"],
+  ["Darmbein","Os ilium","skelett"],
+  ["Schambein","Os pubis","skelett"],
+  ["Sitzbein","Os ischii","skelett"],
+  ["Oberarmknochen","Humerus","skelett"],
+  ["Elle","Ulna","skelett"],
+  ["Speiche","Radius","skelett"],
+  ["Handwurzelknochen","Carpalia","skelett"],
+  ["Mittelhandknochen","Metacarpalia","skelett"],
+  ["Finger- / Zehenknochen","Phalanges","skelett"],
+  ["Oberschenkelknochen","Femur","skelett"],
+  ["Kniescheibe","Patella","skelett"],
+  ["Schienbein","Tibia","skelett"],
+  ["Wadenbein","Fibula","skelett"],
+  ["Aussenknöchel","Malleolus lateralis","skelett"],
+  ["Innenknöchel","Malleolus medialis","skelett"],
+  ["Fusswurzelknochen","Tarsalia","skelett"],
+  ["Mittelfussknochen","Metatarsalia","skelett"],
+  ["Röhrenknochen","Os longum","knochen"],
+  ["kurzer Knochen","Os breve","knochen"],
+  ["platter Knochen","Os planum","knochen"],
+  ["Sesambein","Os sesamoideum","knochen"],
+  ["Knochenschaft","Diaphyse","knochen"],
+  ["Gelenkenden","Epiphysen","knochen"],
+  ["Knochenhaut","Periost","knochen"],
+  ["Knochenrinde","Compacta","knochen"],
+  ["Knochenbälkchen","Trabekel","knochen"],
+  ["Kopfnicker (-wender, -dreher)","M. sternocleidomastoideus","muskeln"],
+  ["Kapuzenmuskel","M. trapezius","muskeln"],
+  ["Deltamuskel","M. deltoideus","muskeln"],
+  ["grosser Brustmuskel","M. pectoralis major","muskeln"],
+  ["Armbeuger","M. biceps brachii","muskeln"],
+  ["Armstrecker","M. triceps brachii","muskeln"],
+  ["gerader Bauchmuskel","M. rectus abdominis","muskeln"],
+  ["breitester Rückenmuskel","M. latissimus dorsi","muskeln"],
+  ["grosser Gesässmuskel","M. gluteus maximus","muskeln"],
+  ["Schneidermuskel","M. sartorius","muskeln"],
+  ["vierköpfiger Oberschenkelmuskel","M. quadriceps femoris","muskeln"],
+  ["vorderer Schienbeinmuskel","M. tibialis anterior","muskeln"],
+  ["zweiköpfiger Wadenmuskel","M. gastrocnemius","muskeln"],
+  ["Achillessehne","Tendo calcaneus","muskeln"],
+  ["Muskelhaut","Faszie","sehnen"],
+  ["Schleimbeutel","Bursae synoviales","sehnen"],
+  ["Schultereckgelenk","ACG","sehnen"],
+  ["Gelenkpfanne der Schulter","Glenoid","sehnen"],
+  ["Anspannung","Kontraktion","funktion"],
+  ["Entspannung","Relaxation","funktion"],
+  ["motorische Nervenzelle","Motoneuron","funktion"],
+  ["Handelnder, arbeitender Muskel","Agonist","funktion"],
+  ["Gegenspieler","Antagonist","funktion"]
+];
+
+// Verständnisfragen: {t: Thema, q: Frage, a: richtige Antwort, w: [falsche], e: Erklärung}
+const QUESTIONS = [
+  // --- Skelett ---
+  {t:"skelett",q:"Aus welchen Knochen besteht der Schultergürtel?",a:"Schlüsselbein und Schulterblatt",w:["Brustbein und Rippen","Oberarmknochen und Schulterblatt","Schlüsselbein und Brustbein"],e:"Schultergürtel = Schlüsselbein (Clavicula) + Schulterblatt (Scapula)."},
+  {t:"skelett",q:"Woraus besteht der Beckenring?",a:"Aus den beiden Hüftbeinen und dem Kreuzbein",w:["Aus Oberschenkelknochen und Kreuzbein","Nur aus dem Darmbein","Aus Lendenwirbeln und Hüftbeinen"],e:"Die beiden Hüftbeine (Os coxae) bilden zusammen mit dem Kreuzbein (Os sacrum) den Beckenring."},
+  {t:"skelett",q:"Aus welchen drei Knochen setzt sich das Hüftbein (Os coxae) zusammen?",a:"Darmbein, Schambein, Sitzbein",w:["Darmbein, Kreuzbein, Steissbein","Schambein, Sitzbein, Kreuzbein","Beckenkamm, Darmbein, Femur"],e:"Os ilium (Darmbein), Os pubis (Schambein), Os ischii (Sitzbein)."},
+  {t:"skelett",q:"Wie sind die oberen Extremitäten an der Wirbelsäule befestigt?",a:"Über Schultergürtel und Thorax",w:["Über den Beckenring","Direkt über den Oberarmknochen","Über das Brustbein allein"],e:"Die Arme hängen am Schultergürtel; dieser ist über den Thorax mit der Wirbelsäule verbunden."},
+  {t:"skelett",q:"Wie sind die unteren Extremitäten an der Wirbelsäule befestigt?",a:"Über den Beckenring",w:["Über den Schultergürtel","Über die Kniescheibe","Über die Brustwirbel"],e:"Der Oberschenkelknochen ist mit dem Hüftbein verbunden; der Beckenring hängt an der Wirbelsäule."},
+  {t:"skelett",q:"Welche zwei Knochen bilden den Unterarm?",a:"Elle und Speiche",w:["Schienbein und Wadenbein","Elle und Oberarmknochen","Speiche und Handwurzelknochen"],e:"Unterarm = Elle (Ulna) + Speiche (Radius)."},
+  {t:"skelett",q:"Welche zwei Knochen bilden den Unterschenkel?",a:"Schienbein und Wadenbein",w:["Elle und Speiche","Femur und Patella","Schienbein und Kniescheibe"],e:"Unterschenkel = Schienbein (Tibia) + Wadenbein (Fibula)."},
+  {t:"skelett",q:"Welcher Knochen gehört NICHT zur oberen Extremität?",a:"Fibula",w:["Humerus","Radius","Carpalia"],e:"Die Fibula (Wadenbein) gehört zum Unterschenkel, also zur unteren Extremität."},
+  {t:"skelett",q:"Der Aussenknöchel (Malleolus lateralis) ist das untere Ende von …",a:"Wadenbein (Fibula)",w:["Schienbein (Tibia)","Oberschenkel (Femur)","Fersenbein"],e:"Aussen = Wadenbein, innen (Malleolus medialis) = Schienbein."},
+  {t:"skelett",q:"Welcher Begriff wird sowohl für Finger- als auch für Zehenknochen verwendet?",a:"Phalanges",w:["Carpalia","Tarsalia","Metatarsalia"],e:"Phalanges = Finger- und Zehenknochen."},
+  {t:"skelett",q:"Welche Reihenfolge stimmt an der Hand (von nah am Arm nach aussen)?",a:"Handwurzel → Mittelhand → Finger",w:["Mittelhand → Handwurzel → Finger","Finger → Mittelhand → Handwurzel","Handwurzel → Finger → Mittelhand"],e:"Carpalia → Metacarpalia → Phalanges. Am Fuss analog: Tarsalia → Metatarsalia → Phalanges."},
+  {t:"skelett",q:"Was gehört zum Brustkorb (Thorax)?",a:"Brustbein, Rippen und Brustwirbel",w:["Schlüsselbein und Schulterblatt","Brustbein, Rippen und Kreuzbein","Nur die Rippen"],e:"Thorax = Sternum + Costae + Vertebrae thoracales."},
+
+  // --- Knochenaufbau ---
+  {t:"knochen",q:"Welcher Knochen ist ein typischer Röhrenknochen?",a:"Oberschenkelknochen (Femur)",w:["Schädeldach","Handwurzelknochen","Wirbel"],e:"Röhrenknochen (Os longum): z.B. Femur, Humerus, Tibia."},
+  {t:"knochen",q:"Zu welcher Knochenform gehören die Handwurzelknochen?",a:"Kurze Knochen (Ossa brevia)",w:["Röhrenknochen","Platte Knochen","Sesambeine"],e:"Hand- und Fusswurzelknochen sind kurze Knochen."},
+  {t:"knochen",q:"Welche Knochenform hat das Schädeldach?",a:"Platter Knochen (Os planum)",w:["Kurzer Knochen","Röhrenknochen","Sesambein"],e:"Platte Knochen: Schädeldach, Brustbein, Rippen, Schulterblatt, Becken."},
+  {t:"knochen",q:"Die Kniescheibe ist ein …",a:"Sesambein (Os sesamoideum)",w:["Röhrenknochen","Platter Knochen","Kurzer Knochen"],e:"Die Patella ist ein Sesambein – ein Knochen, der in eine Sehne eingelagert ist."},
+  {t:"knochen",q:"Welche Knochenform haben die Wirbel?",a:"Unregelmässig geformte Knochen",w:["Röhrenknochen","Kurze Knochen","Platte Knochen"],e:"Wirbel und Teile des Gesichtsschädels sind unregelmässig geformt."},
+  {t:"knochen",q:"In welche drei Abschnitte wird ein Röhrenknochen unterteilt?",a:"Knochenschaft (Diaphyse) und zwei Gelenkenden (Epiphysen)",w:["Periost, Compacta, Markhöhle","Kopf, Hals, Fuss","Zwei Diaphysen und eine Epiphyse"],e:"Diaphyse = Schaft, Epiphysen = die beiden Gelenkenden."},
+  {t:"knochen",q:"Wozu dient der Gelenkknorpel auf den Gelenkenden?",a:"Er ermöglicht eine reibungslose Bewegung",w:["Er bildet Blutzellen","Er verankert Muskeln am Knochen","Er versorgt den Knochen mit Blut"],e:"Die dünne Knorpelschicht überzieht die Gelenkenden und sorgt u.a. für reibungslose Bewegung."},
+  {t:"knochen",q:"Was ist das Periost?",a:"Die bindegewebige Knochenhaut um den Knochenschaft",w:["Die Knochenrinde","Das gelbe Knochenmark","Der Gelenkknorpel"],e:"Das Periost umgibt den Schaft von aussen und ist fest mit der Knochenoberfläche verbunden."},
+  {t:"knochen",q:"Welche Aufgaben hat die Knochenhaut (Periost)?",a:"Sie bildet Knochengewebe und ist an Wachstum und Heilung beteiligt",w:["Sie speichert Fett","Sie macht den Knochen leichter","Sie bildet die Gelenkflüssigkeit"],e:"In der Knochenhaut verlaufen zudem die Blutgefässe, die den Knochen ernähren."},
+  {t:"knochen",q:"Wie heisst die feste, röhrenförmige Schicht der Diaphyse?",a:"Knochenrinde (Compacta)",w:["Knochenhaut (Periost)","Knochenbälkchen (Trabekel)","Markhöhle"],e:"Das Knochengewebe der Diaphyse bildet eine feste Röhre = Compacta."},
+  {t:"knochen",q:"Womit ist die Markhöhle im Schaft gefüllt?",a:"Mit gelbem Knochenmark (vor allem Fett)",w:["Mit rotem, blutbildendem Knochenmark","Mit Knorpel","Mit Gelenkflüssigkeit"],e:"Das gelbe Mark besteht v.a. aus Fett – dadurch wird der Knochen leichter."},
+  {t:"knochen",q:"Warum besteht der Schaft aus einer Röhre und nicht aus massivem Knochen?",a:"Das verringert das Gewicht des Knochens",w:["Damit Blut schneller fliesst","Damit der Knochen wachsen kann","Damit Sehnen daran ansetzen können"],e:"Hohle Röhre mit Fettmark = stabil und trotzdem leicht."},
+  {t:"knochen",q:"Wo liegen Knochenbälkchen (Trabekel) und rotes Knochenmark?",a:"In den Gelenkenden (Epiphysen)",w:["In der Markhöhle des Schafts","In der Knochenhaut","Im Gelenkknorpel"],e:"Die Bälkchen sind wie Stahlträger angeordnet; dazwischen liegt das rote Knochenmark."},
+  {t:"knochen",q:"Wie gelangen die Blutgefässe in den Knochen?",a:"Aus der Knochenhaut durch kleine Öffnungen",w:["Über den Gelenkknorpel","Über die Sehnen","Gar nicht, Knochen hat keine Blutgefässe"],e:"Feine Äste gelangen in die äusseren Schichten, grössere Gefässe bis ins Innere."},
+
+  // --- Muskeln ---
+  {t:"muskeln",q:"Wie viele Skelettmuskeln hat der Mensch ungefähr?",a:"Rund 400",w:["Rund 100","Rund 206","Rund 1000"],e:"Insgesamt ca. 400 Skelettmuskeln – also deutlich mehr als Knochen."},
+  {t:"muskeln",q:"Warum heisst die Skelettmuskulatur «willkürliche» Muskulatur?",a:"Weil sie willentlich bewegt werden kann",w:["Weil sie zufällig angeordnet ist","Weil sie sich nie ermüdet","Weil sie ohne Nerven arbeitet"],e:"Skelettmuskeln steuern wir bewusst."},
+  {t:"muskeln",q:"Was bedeutet die Abkürzung «M.» vor den Muskelnamen?",a:"Musculus – lateinisch für «Mäuschen»",w:["Motorisch","Medius – mittlerer","Membrana – Haut"],e:"Der Name kommt vom Aussehen vieler Muskeln, z.B. des Bizeps beim Anspannen."},
+  {t:"muskeln",q:"Welcher Muskel liegt an der Rückseite des Oberarms?",a:"M. triceps brachii",w:["M. biceps brachii","M. deltoideus","M. pectoralis major"],e:"Trizeps = Armstrecker, hinten. Bizeps = Armbeuger, vorne."},
+  {t:"muskeln",q:"Welcher Muskel bildet die Schulterkappe?",a:"Deltamuskel (M. deltoideus)",w:["Kapuzenmuskel (M. trapezius)","Kopfnicker","Breitester Rückenmuskel"],e:"Der Deltamuskel liegt wie eine Kappe über dem Schultergelenk."},
+  {t:"muskeln",q:"Welcher Muskel ist der «Sixpack»-Muskel?",a:"M. rectus abdominis",w:["M. latissimus dorsi","M. sartorius","M. gluteus maximus"],e:"Gerader Bauchmuskel = M. rectus abdominis."},
+  {t:"muskeln",q:"Welche Sehne setzt am Fersenbein an?",a:"Achillessehne (Tendo calcaneus)",w:["Bizepssehne","Supraspinatussehne","Patellasehne des Schneidermuskels"],e:"Die Achillessehne verbindet den Wadenmuskel (M. gastrocnemius) mit der Ferse."},
+  {t:"muskeln",q:"Welcher Muskel liegt vorne am Oberschenkel und hat vier Köpfe?",a:"M. quadriceps femoris",w:["M. gastrocnemius","M. biceps brachii","M. tibialis anterior"],e:"Quadri = vier, femoris = des Oberschenkels."},
+  {t:"muskeln",q:"Welche Gelenke haben Bewegungsmöglichkeiten in alle Ebenen?",a:"Kugelgelenke, z.B. Hüft- und Schultergelenk",w:["Scharniergelenke, z.B. Ellbogen","Sattelgelenke, z.B. Daumen","Alle Gelenke gleich"],e:"Bei Kugelgelenken sind Kopf und Pfanne am deutlichsten ausgebildet."},
+
+  // --- Sehnen & Schleimbeutel ---
+  {t:"sehnen",q:"Was ist die Faszie?",a:"Eine feste, weiss-silbrige Haut, die den Muskel umhüllt",w:["Eine einzelne Muskelzelle","Die Verbindung zwischen zwei Knochen","Die Knochenhaut"],e:"Faszie = Muskelhaut."},
+  {t:"sehnen",q:"Welche Aufgaben hat die Faszie? (beste Antwort)",a:"Hält die Fasern zusammen, grenzt den Muskel ab, ermöglicht Gleiten",w:["Verbindet Knochen miteinander","Bildet neues Knochengewebe","Leitet Nervenimpulse"],e:"Und: Die Faszien verdichten sich zur Sehne."},
+  {t:"sehnen",q:"Was verbinden Sehnen?",a:"Muskel mit Knochen",w:["Knochen mit Knochen","Muskel mit Muskel","Nerv mit Muskel"],e:"Sehnen verankern Muskeln am Knochen."},
+  {t:"sehnen",q:"Was verbinden Bänder?",a:"Knochen mit Knochen – sie stabilisieren Gelenke",w:["Muskel mit Knochen","Muskelfasern untereinander","Haut mit Muskel"],e:"Merksatz: Sehnen = Muskel–Knochen, Bänder = Knochen–Knochen."},
+  {t:"sehnen",q:"Wie ist ein Skelettmuskel aufgebaut (vom Grossen zum Kleinen)?",a:"Muskel → Faserbündel → Muskelfaser → Myofibrille",w:["Muskel → Myofibrille → Faserbündel → Muskelfaser","Faszie → Sehne → Myofibrille → Muskel","Muskelfaser → Muskel → Myofibrille → Bündel"],e:"Die Myofibrille ist die kleinste Einheit in der Abbildung."},
+  {t:"sehnen",q:"Was ist eine Muskelfaser?",a:"Eine Muskelzelle mit mehreren Zellkernen",w:["Eine Sehne","Ein Blutgefäss im Muskel","Ein Bündel aus vielen Muskeln"],e:"Muskelfaser = Muskelzelle, ca. 10 µm dick, mit mehreren Zellkernen."},
+  {t:"sehnen",q:"Wozu dienen Sehnenscheiden?",a:"Sie umhüllen Sehnen; ihre Flüssigkeit erhöht die Gleitfähigkeit",w:["Sie verankern die Sehne am Knochen","Sie ernähren den Knochen","Sie verbinden zwei Knochen"],e:"Sehnenscheiden gibt es dort, wo Sehnen lange Strecken oder Gelenke überbrücken – z.B. an der Hand."},
+  {t:"sehnen",q:"Was sind Schleimbeutel (Bursae synoviales)?",a:"Kleine flüssigkeitsgefüllte Säckchen, die Gewebe vor Abnutzung schützen",w:["Drüsen, die Schleim produzieren","Hohlräume im Knochen","Teile der Muskelfaser"],e:"Sie liegen an Stellen mit erhöhtem Druck oder Reibung, z.B. über Knochen."},
+  {t:"sehnen",q:"Wo liegt der Schleimbeutel der Schulter (Abb. 2-13)?",a:"Unter dem Acromion, über der Supraspinatussehne",w:["In der Gelenkpfanne","Im Oberarmschaft","Zwischen Rippen und Brustbein"],e:"Er schützt die Supraspinatussehne vor Reibung am Schulterdach."},
+  {t:"sehnen",q:"Wofür steht ACG an der Schulter?",a:"Schultereckgelenk",w:["Gelenkpfanne","Schulterblattfortsatz","Bizepssehne"],e:"ACG = Acromioclaviculargelenk = Schultereckgelenk (zwischen Acromion und Schlüsselbein)."},
+
+  // --- Funktionsweise ---
+  {t:"funktion",q:"Was kann ein Muskel aktiv tun?",a:"Sich nur zusammenziehen (kontrahieren)",w:["Sich zusammenziehen und aktiv verlängern","Sich nur verlängern","Sich drehen"],e:"Ein Muskel kann sich nicht aktiv verlängern – deshalb braucht es Gegenspieler."},
+  {t:"funktion",q:"Welcher Muskel beugt den Unterarm?",a:"M. biceps brachii",w:["M. triceps brachii","M. deltoideus","M. latissimus dorsi"],e:"Bizeps = Armbeuger."},
+  {t:"funktion",q:"Was passiert, wenn der Arm gestreckt wird?",a:"Trizeps kontrahiert, Bizeps entspannt",w:["Bizeps kontrahiert, Trizeps entspannt","Beide kontrahieren","Beide entspannen"],e:"Beim Beugen ist es umgekehrt (Abb. 2-14)."},
+  {t:"funktion",q:"Wie nennt man das Prinzip entgegengesetzt arbeitender Muskeln?",a:"Gegenspielerprinzip (Agonist-Antagonist-Prinzip)",w:["Synergistenprinzip","Ruhetonus","Reflexbogen"],e:"Agonist = der Handelnde, Antagonist = der Gegenspieler."},
+  {t:"funktion",q:"Was ist der Agonist?",a:"Der jeweils arbeitende (handelnde) Muskel",w:["Der Gegenspieler","Ein unterstützender Muskel","Die Sehne"],e:"Beim Beugen ist der Bizeps der Agonist, der Trizeps der Antagonist."},
+  {t:"funktion",q:"Was sind Synergisten?",a:"Muskeln, die sich gegenseitig in ihrer Arbeit unterstützen",w:["Muskeln, die gegeneinander arbeiten","Muskeln ohne Sehnen","Muskeln im Ruhezustand"],e:"Syn = zusammen."},
+  {t:"funktion",q:"Warum sieht man beim Bizeps die Kontraktion gut?",a:"Er ist spindelförmig, der Muskelbauch verdickt sich",w:["Er ist besonders lang","Er liegt direkt am Knochen","Er hat keine Faszie"],e:"Bei spindelförmigen Muskeln schwillt der Muskelbauch an."},
+  {t:"funktion",q:"Was braucht ein Skelettmuskel, damit er sich anspannt?",a:"Ein «Kommando» von einem Motoneuron",w:["Mehr Blutzucker","Einen Impuls vom Herz","Nur die Schwerkraft"],e:"Motoneuron = motorische Nervenzelle."},
+  {t:"funktion",q:"Wo wird der Impuls vom Nerv auf den Muskel übertragen?",a:"An der motorischen Endplatte",w:["In der Sehnenscheide","Im Schleimbeutel","Im Periost"],e:"Geht keine Meldung ein, ist der Muskel entspannt."},
+  {t:"funktion",q:"Was ist der Ruhetonus?",a:"Eine Grundspannung der Muskeln, damit wir nicht zusammensinken",w:["Die maximale Kraft eines Muskels","Der Zustand völliger Entspannung","Der Puls in Ruhe"],e:"Dabei sind nur einzelne Muskelfasern kontrahiert."},
+  {t:"funktion",q:"Wie wird der Ruhetonus gesteuert?",a:"Reflexartig über das Rückenmark, kontrolliert durch das Gehirn",w:["Nur bewusst durch das Gehirn","Durch Hormone aus dem Blut","Gar nicht, er ist immer gleich"],e:"Es sind ständige, feine Ausgleichsbewegungen, die sehr schnell ablaufen."},
+  {t:"funktion",q:"Was sinkt, wenn der Bizeps erschlafft und ein Gewicht in der Hand liegt?",a:"Der Unterarm sinkt durch die Schwerkraft herab",w:["Der Oberarm hebt sich","Der Trizeps verkürzt sich automatisch","Nichts, der Arm bleibt stehen"],e:"Ohne Gewicht bräuchte es den Trizeps, um den Arm zu strecken."}
+];
+
+/* ============ GRAFIKEN (selbst gezeichnet) ============ */
+const HL = "#2563eb", HLS = "#1e3a8a";
+const BONE = "#efe5cc", BONES = "#a88f63";
+const MUS = "#d98b80", MUSS = "#a85448";
+
+function bar(d, w, fill, stroke){
+  return `<path d="${d}" fill="none" stroke="${stroke}" stroke-width="${w+2}" stroke-linecap="round"/>`+
+         `<path d="${d}" fill="none" stroke="${fill}" stroke-width="${w}" stroke-linecap="round"/>`;
+}
+const mirror = (cx, s) => `<g transform="translate(${2*cx},0) scale(-1,1)">${s}</g>`;
+
+function figSkeleton(hl){
+  const f = id => id===hl ? HL : BONE, s = id => id===hl ? HLS : BONES;
+  const B = (id,d,w) => bar(d,w,f(id),s(id));
+  let ribs = "";
+  for (let i=0;i<7;i++){ const y=80+i*8; ribs += B("costae",`M97,${y} C76,${y-6} 66,${y+8} 74,${y+16}`,2.5); }
+  const half = `
+    <path d="M72,70 L90,74 L80,104 Z" fill="${f('scapula')}" stroke="${s('scapula')}"/>
+    ${ribs}
+    ${B("clavicula","M97,71 Q84,63 69,68",4)}
+    ${B("humerus","M66,72 L58,140",7)}
+    ${B("radius","M55,144 L46,206",3.5)}
+    ${B("ulna","M61,144 L56,206",3.5)}
+    <ellipse cx="51" cy="212" rx="8" ry="5" fill="${f('carpalia')}" stroke="${s('carpalia')}"/>
+    ${["M45,218 L42,236","M49,219 L48,238","M53,219 L54,238","M57,218 L59,235","M44,216 L37,227"].map(d=>B("metacarpalia",d,2)).join("")}
+    ${["M42,239 L40,256","M48,241 L47,261","M54,241 L55,260","M59,238 L61,253","M36,229 L32,240"].map(d=>B("phalanges",d,2)).join("")}
+    <path d="M96,152 C80,140 64,148 66,164 C68,176 78,182 86,184 L94,176 Z" fill="${f('ilium')}" stroke="${s('ilium')}"/>
+    <path d="M96,152 C80,140 64,148 66,164" fill="none" stroke="${hl==='crista'?HL:BONES}" stroke-width="${hl==='crista'?4:1}"/>
+    <circle cx="82" cy="181" r="5" fill="${f('femur')}" stroke="${s('femur')}"/>
+    ${B("femur","M82,186 L88,288",8)}
+    <path d="M88,186 C92,194 97,196 99,196 L99,188 C95,188 92,186 91,182 Z" fill="${f('pubis')}" stroke="${s('pubis')}"/>
+    <path d="M80,190 C76,202 84,208 92,204 L93,196 C89,197 86,195 87,191 Z" fill="${f('ischium')}" stroke="${s('ischium')}"/>
+    <circle cx="89" cy="296" r="5" fill="${f('patella')}" stroke="${s('patella')}"/>
+    ${B("tibia","M91,304 L91,370",7)}
+    ${B("fibula","M81,306 L82,367",3.5)}
+    <circle cx="82" cy="371" r="3.5" fill="${f('mlat')}" stroke="${s('mlat')}"/>
+    <circle cx="93" cy="374" r="3.5" fill="${f('mmed')}" stroke="${s('mmed')}"/>
+    <ellipse cx="88" cy="383" rx="8" ry="6" fill="${f('tarsalia')}" stroke="${s('tarsalia')}"/>
+    ${["M82,389 L78,401","M86,390 L84,403","M90,390 L90,404","M94,389 L96,402"].map(d=>B("metatarsalia",d,2)).join("")}
+    ${["M78,404 L77,411","M84,406 L83,413","M90,407 L90,414","M96,405 L97,412"].map(d=>B("phalanges",d,2)).join("")}`;
+  let spine = "";
+  for (let y=56;y<66;y+=5) spine += `<rect x="96" y="${y}" width="8" height="4" rx="1" fill="${BONE}" stroke="${BONES}"/>`;
+  for (let y=70;y<140;y+=6) spine += `<rect x="95" y="${y}" width="10" height="5" rx="1" fill="${f('vert')}" stroke="${s('vert')}"/>`;
+  for (let y=140;y<152;y+=6) spine += `<rect x="94" y="${y}" width="12" height="5" rx="1" fill="${BONE}" stroke="${BONES}"/>`;
+  return `<svg viewBox="0 20 200 400" xmlns="http://www.w3.org/2000/svg">
+    ${spine}${half}${mirror(100,half)}
+    <rect x="95" y="72" width="10" height="44" rx="3" fill="${f('sternum')}" stroke="${s('sternum')}"/>
+    <path d="M93,152 L107,152 L102,180 L98,180 Z" fill="${f('sacrum')}" stroke="${s('sacrum')}"/>
+    <ellipse cx="100" cy="30" rx="19" ry="22" fill="${f('cranium')}" stroke="${s('cranium')}"/>
+    <path d="M86,40 Q100,62 114,40" fill="${f('cranium')}" stroke="${s('cranium')}"/>
+    <ellipse cx="93" cy="32" rx="4" ry="3" fill="#6b5a3e"/><ellipse cx="107" cy="32" rx="4" ry="3" fill="#6b5a3e"/>
+  </svg>`;
+}
+
+function figBone(hl){
+  const f = (id,def) => id===hl ? HL : def;
+  const br = (x,y1,y2) => `<path d="M${x},${y1} L${x+8},${y1} L${x+8},${y2} L${x},${y2}" fill="none" stroke="${HL}" stroke-width="4"/>`;
+  return `<svg viewBox="0 0 220 300" xmlns="http://www.w3.org/2000/svg">
+    <defs><pattern id="trab" width="8" height="8" patternUnits="userSpaceOnUse" patternTransform="rotate(30)">
+      <rect width="8" height="8" fill="#f0a99a"/><path d="M0,4 H8 M4,0 V8" stroke="#efe5cc" stroke-width="2"/></pattern></defs>
+    <path d="M70,74 C58,50 64,16 90,16 C116,16 122,50 110,74 Z" fill="${hl==='trabekel'?HL:'url(#trab)'}" stroke="${BONES}"/>
+    <path d="M74,226 C66,248 58,266 64,282 L116,282 C122,266 114,248 106,226 Z" fill="${hl==='trabekel'?HL:'url(#trab)'}" stroke="${BONES}"/>
+    <path d="M66,46 C64,24 78,14 90,14 C102,14 116,24 114,46 C108,28 98,22 90,22 C82,22 72,28 66,46 Z" fill="${f('knorpel','#bcd9ee')}" stroke="#7aa7c7"/>
+    <rect x="62" y="282" width="56" height="7" rx="3" fill="${f('knorpel','#bcd9ee')}" stroke="#7aa7c7"/>
+    <rect x="70" y="72" width="40" height="156" rx="2" fill="${f('periost','#e9a48c')}"/>
+    <rect x="74" y="72" width="32" height="156" fill="${f('compacta','#e4d6b5')}" stroke="${BONES}"/>
+    <rect x="83" y="76" width="14" height="148" rx="4" fill="${f('mark','#f4d35e')}"/>
+    ${hl==='diaphyse'?br(140,72,228):""}
+    ${hl==='epiphyse'?br(140,16,74)+br(140,226,289):""}
+  </svg>`;
+}
+
+function figMuscle(hl){
+  const f = (id,def) => id===hl ? HL : def;
+  const body = "M75,10 C122,22 124,120 82,185 L68,185 C26,120 28,22 75,10 Z";
+  let dots = ""; [[188,36],[202,32],[214,44],[194,52],[208,58],[182,48],[200,45]].forEach(([x,y])=>dots+=`<circle cx="${x}" cy="${y}" r="5" fill="#b65446" opacity=".55"/>`);
+  let stripes = ""; for (let x=168;x<234;x+=6) stripes += `<rect x="${x}" y="190" width="3" height="12" fill="#7d2f25" opacity=".5"/>`;
+  return `<svg viewBox="0 0 300 265" xmlns="http://www.w3.org/2000/svg">
+    <path d="M100,60 L170,45 M200,75 L200,110 M200,138 L200,188" stroke="#9aa3ad" stroke-dasharray="3 3"/>
+    <rect x="38" y="236" width="74" height="20" rx="8" fill="${f('knochen',BONE)}" stroke="${BONES}"/>
+    <path d="M68,182 L71,238 L79,238 L82,182 Z" fill="${f('sehne','#ece4d6')}" stroke="#b8ab95"/>
+    <path d="${body}" fill="#c96a5c"/>
+    <path d="M75,18 C60,70 64,140 72,182 M75,18 C92,70 88,140 78,182 M75,18 C48,60 48,120 70,178 M75,18 C104,60 102,120 80,178" stroke="#a24c40" fill="none"/>
+    <path d="${body}" fill="none" stroke="${f('faszie','#efe9de')}" stroke-width="${hl==='faszie'?5:3}"/>
+    <circle cx="200" cy="45" r="30" fill="${f('buendel','#e3a59b')}" stroke="${MUSS}"/>${hl==='buendel'?'':dots}
+    <rect x="160" y="110" width="80" height="28" rx="14" fill="${f('faser','#d07565')}" stroke="${MUSS}"/>
+    <ellipse cx="182" cy="119" rx="4" ry="2.5" fill="#5b2a6e"/><ellipse cx="214" cy="129" rx="4" ry="2.5" fill="#5b2a6e"/>
+    <rect x="165" y="190" width="70" height="12" rx="6" fill="${f('fibrille','#c0675a')}" stroke="${MUSS}"/>${hl==='fibrille'?'':stripes}
+  </svg>`;
+}
+
+function figArm(state, hl){
+  const bent = state==="bent";
+  const f = id => id===hl ? HL : MUS;
+  const fore = bent ? [bar("M60,150 L172,142",5,BONE,BONES), bar("M60,157 L172,149",4,BONE,BONES)]
+                    : [bar("M58,152 L74,262",5,BONE,BONES), bar("M64,150 L81,260",4,BONE,BONES)];
+  const ball = bent ? `<circle cx="184" cy="132" r="14" fill="#7a1e2c"/>` : `<circle cx="82" cy="282" r="14" fill="#7a1e2c"/>`;
+  const bic = bent ? `<ellipse cx="73" cy="94" rx="13" ry="33" transform="rotate(-6 73 94)" fill="${f('biceps')}" stroke="${MUSS}"/><path d="M76,126 L74,152" stroke="${MUSS}" stroke-width="3"/>`
+                   : `<ellipse cx="68" cy="96" rx="6" ry="42" transform="rotate(-6 68 96)" fill="${f('biceps')}" stroke="${MUSS}" opacity="${hl==='biceps'?1:.8}"/><path d="M71,138 L68,156" stroke="${MUSS}" stroke-width="3"/>`;
+  const tri = bent ? `<ellipse cx="45" cy="98" rx="6" ry="42" transform="rotate(-6 45 98)" fill="${f('triceps')}" stroke="${MUSS}" opacity="${hl==='triceps'?1:.8}"/><path d="M50,140 L55,158" stroke="${MUSS}" stroke-width="3"/>`
+                   : `<ellipse cx="43" cy="92" rx="12" ry="36" transform="rotate(-6 43 92)" fill="${f('triceps')}" stroke="${MUSS}"/><path d="M48,126 L55,158" stroke="${MUSS}" stroke-width="3"/>`;
+  return `<svg viewBox="0 0 210 300" xmlns="http://www.w3.org/2000/svg">
+    <path d="M20,18 L74,28 L56,52 Z" fill="${BONE}" stroke="${BONES}"/>
+    ${bar("M52,36 L60,150",9,BONE,BONES)}${fore.join("")}${tri}${bic}${ball}
+  </svg>`;
+}
+
+function figBody(hl){
+  const f = id => id===hl ? HL : MUS, s = id => id===hl ? HLS : MUSS;
+  const skin = "#f1dcc9", skinS = "#c9a98f";
+  const sil = cx => {
+    const limb = (d,w) => bar(d,w,skin,skinS);
+    return `${limb(`M${cx-27},58 L${cx-37},135 L${cx-43},195`,13)}${limb(`M${cx+27},58 L${cx+37},135 L${cx+43},195`,13)}
+      ${limb(`M${cx-13},165 L${cx-14},238`,20)}${limb(`M${cx+13},165 L${cx+14},238`,20)}
+      ${limb(`M${cx-14},238 L${cx-13},304`,14)}${limb(`M${cx+14},238 L${cx+13},304`,14)}
+      <path d="M${cx-28},52 L${cx+28},52 L${cx+24},140 L${cx+27},170 L${cx-27},170 L${cx-24},140 Z" fill="${skin}" stroke="${skinS}"/>
+      <rect x="${cx-6}" y="36" width="12" height="18" fill="${skin}" stroke="${skinS}"/>
+      <circle cx="${cx}" cy="25" r="14" fill="${skin}" stroke="${skinS}"/>`;
+  };
+  const E = (id,cx,cy,rx,ry,rot=0) => `<ellipse cx="${cx}" cy="${cy}" rx="${rx}" ry="${ry}" transform="rotate(${rot} ${cx} ${cy})" fill="${f(id)}" stroke="${s(id)}"/>`;
+  const L = (id,d,w,def) => `<path d="${d}" stroke="${id===hl?HL:(def||MUS)}" stroke-width="${id===hl?w+1.5:w}" stroke-linecap="round" fill="none"/>`;
+  const fx = 75, bx = 225;
+  const frontHalf = `${L("scm",`M${fx-9},31 L${fx-3},52`,4)}${E("delt",fx-29,64,9,12)}${E("pect",fx-13,70,13,10)}
+    ${E("biceps",fx-33,98,6,17,8)}${E("quad",fx-13,198,8,25)}${L("sart",`M${fx-24},170 L${fx-4},236`,4)}${E("tib",fx-11,268,3.5,22)}`;
+  const backHalf = `${E("delt",bx-29,64,9,12)}<path d="M${bx-22},82 C${bx-27},110 ${bx-20},130 ${bx-6},142 L${bx-4},112 Z" fill="${f('lat')}" stroke="${s('lat')}"/>
+    ${E("triceps",bx-34,98,6,17,8)}${E("glut",bx-12,172,12,12)}${E("gastro",bx-13,256,7,18)}${L("achilles",`M${bx-13},276 L${bx-13},302`,3,"#efe6d6")}`;
+  return `<svg viewBox="0 0 300 330" xmlns="http://www.w3.org/2000/svg">
+    ${sil(fx)}${sil(bx)}
+    ${frontHalf}${mirror(fx,frontHalf)}<rect x="${fx-9}" y="88" width="18" height="58" rx="4" fill="${f('rectus')}" stroke="${s('rectus')}"/>
+    <path d="M${bx},36 L${bx+26},56 L${bx+8},70 L${bx},112 L${bx-8},70 L${bx-26},56 Z" fill="${f('trap')}" stroke="${s('trap')}"/>
+    ${backHalf}${mirror(bx,backHalf)}
+    <text x="${fx}" y="324" text-anchor="middle" font-size="12" fill="#6b7280">vorne</text>
+    <text x="${bx}" y="324" text-anchor="middle" font-size="12" fill="#6b7280">hinten</text>
+  </svg>`;
+}
+
+// Bildfragen: [Thema, Grafik-Funktion, Teile {id: Antwort}, Frage]
+const FIG_SETS = [
+  ["skelett", figSkeleton, {
+    cranium:"Schädel (Cranium)", clavicula:"Schlüsselbein (Clavicula)", scapula:"Schulterblatt (Scapula)",
+    sternum:"Brustbein (Sternum)", costae:"Rippen (Costae)", vert:"Brustwirbel (Vertebrae thoracales)",
+    humerus:"Oberarmknochen (Humerus)", radius:"Speiche (Radius)", ulna:"Elle (Ulna)",
+    carpalia:"Handwurzelknochen (Carpalia)", metacarpalia:"Mittelhandknochen (Metacarpalia)", phalanges:"Finger-/Zehenknochen (Phalanges)",
+    sacrum:"Kreuzbein (Os sacrum)", crista:"Beckenkamm (Crista iliaca)", ilium:"Darmbein (Os ilium)", pubis:"Schambein (Os pubis)", ischium:"Sitzbein (Os ischii)",
+    femur:"Oberschenkelknochen (Femur)", patella:"Kniescheibe (Patella)", tibia:"Schienbein (Tibia)", fibula:"Wadenbein (Fibula)",
+    mlat:"Aussenknöchel (Malleolus lateralis)", mmed:"Innenknöchel (Malleolus medialis)", tarsalia:"Fusswurzelknochen (Tarsalia)", metatarsalia:"Mittelfussknochen (Metatarsalia)"
+  }, "Welcher Knochen ist blau markiert?"],
+  ["knochen", figBone, {
+    knorpel:"Gelenkknorpel", periost:"Knochenhaut (Periost)", compacta:"Knochenrinde (Compacta)",
+    mark:"Markhöhle mit gelbem Knochenmark", trabekel:"Knochenbälkchen (Trabekel) mit rotem Knochenmark",
+    diaphyse:"Knochenschaft (Diaphyse)", epiphyse:"Gelenkenden (Epiphysen)"
+  }, "Röhrenknochen im Längsschnitt: Was ist blau markiert?"],
+  ["sehnen", figMuscle, {
+    faszie:"Muskelhaut (Faszie)", sehne:"Sehne", knochen:"Knochen", buendel:"Muskelfaserbündel",
+    faser:"Muskelfaser (Muskelzelle)", fibrille:"Myofibrille"
+  }, "Aufbau eines Skelettmuskels: Was ist blau markiert?"],
+  ["muskeln", figBody, {
+    scm:"Kopfnicker (M. sternocleidomastoideus)", delt:"Deltamuskel (M. deltoideus)", pect:"grosser Brustmuskel (M. pectoralis major)",
+    biceps:"Armbeuger (M. biceps brachii)", rectus:"gerader Bauchmuskel (M. rectus abdominis)", sart:"Schneidermuskel (M. sartorius)",
+    quad:"vierköpfiger Oberschenkelmuskel (M. quadriceps femoris)", tib:"vorderer Schienbeinmuskel (M. tibialis anterior)",
+    trap:"Kapuzenmuskel (M. trapezius)", lat:"breitester Rückenmuskel (M. latissimus dorsi)", triceps:"Armstrecker (M. triceps brachii)",
+    glut:"grosser Gesässmuskel (M. gluteus maximus)", gastro:"zweiköpfiger Wadenmuskel (M. gastrocnemius)", achilles:"Achillessehne (Tendo calcaneus)"
+  }, "Was ist blau markiert?"]
+];
+
+const ARM_Q = [
+  {svg:()=>figArm("bent","biceps"), q:"Der Unterarm wird gebeugt. Welcher Muskel ist blau markiert?", a:"M. biceps brachii (Armbeuger)", w:["M. triceps brachii (Armstrecker)","M. deltoideus (Deltamuskel)","M. pectoralis major"], e:"Der Bizeps liegt vorne am Oberarm und beugt den Unterarm."},
+  {svg:()=>figArm("bent","biceps"), q:"Der Arm wird gebeugt. Was macht der blau markierte Muskel?", a:"Er kontrahiert – er ist der Agonist", w:["Er ist entspannt – er ist der Antagonist","Er verlängert sich aktiv","Er ist ein Synergist ohne Funktion"], e:"Der arbeitende Muskel ist der Agonist."},
+  {svg:()=>figArm("bent","triceps"), q:"Der Arm wird gebeugt. Was macht der blau markierte Muskel?", a:"Er ist entspannt – er ist der Antagonist", w:["Er kontrahiert – er ist der Agonist","Er verlängert sich aktiv","Er hält den Ruhetonus auf null"], e:"Beim Beugen ist der Trizeps der entspannte Gegenspieler."},
+  {svg:()=>figArm("straight","triceps"), q:"Der Arm wird gestreckt. Welcher Muskel ist blau markiert und kontrahiert?", a:"M. triceps brachii (Armstrecker)", w:["M. biceps brachii (Armbeuger)","M. latissimus dorsi","M. deltoideus"], e:"Beim Strecken ist der Trizeps der Agonist."},
+  {svg:()=>figArm("straight","biceps"), q:"Der Arm wird gestreckt. In welchem Zustand ist der blau markierte Muskel?", a:"Entspannt (Relaxation)", w:["Kontrahiert (Kontraktion)","Er verlängert sich aktiv","Er ist verkrampft"], e:"Der Bizeps ist beim Strecken der entspannte Antagonist – er wird passiv gedehnt."}
+];
+
+function buildImageQuestions(){
+  const out = [];
+  FIG_SETS.forEach(([t, fn, parts, q]) => {
+    const ids = Object.keys(parts);
+    ids.forEach(id => out.push({
+      t, svg: fn(id), q, a: parts[id],
+      w: shuffle(ids.filter(x=>x!==id)).slice(0,3).map(x=>parts[x]),
+      e: `Markiert ist: ${parts[id]}.`
+    }));
+  });
+  ARM_Q.forEach(x => out.push({...x, t:"funktion", svg:x.svg()}));
+  return out;
+}
+
+/* ============ LOGIK ============ */
+const $ = id => document.getElementById(id);
+const shuffle = a => { a = a.slice(); for (let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]];} return a; };
+const store = {
+  get(k){ try{ return JSON.parse(localStorage.getItem(k)); }catch(e){ return null; } },
+  set(k,v){ try{ localStorage.setItem(k, JSON.stringify(v)); }catch(e){} }
+};
+
+let mode = "quiz", topic = "all", count = 10, dir = "de2lat";
+let deck = [], idx = 0, score = 0, wrong = [], answered = false;
+
+function renderTopics(){
+  const box = $("topicChips"); box.innerHTML = "";
+  [["all","Alles"], ...Object.entries(TOPICS)].forEach(([k,v])=>{
+    const b = document.createElement("button");
+    b.textContent = v; b.className = k===topic ? "active" : "";
+    b.onclick = () => { topic = k; renderTopics(); updateBest(); };
+    box.appendChild(b);
+  });
+}
+function chipGroup(id, attr, set){
+  $(id).querySelectorAll("button").forEach(b => b.onclick = () => {
+    $(id).querySelectorAll("button").forEach(x=>x.classList.remove("active"));
+    b.classList.add("active"); set(b.dataset[attr]); updateBest();
+  });
+}
+chipGroup("countChips","n",v=>count=+v);
+chipGroup("dirChips","dir",v=>dir=v);
+
+document.querySelectorAll(".tabs button").forEach(b => b.onclick = () => {
+  document.querySelectorAll(".tabs button").forEach(x=>x.classList.remove("active"));
+  b.classList.add("active"); mode = b.dataset.mode;
+  $("dirBox").classList.toggle("hidden", mode==="quiz");
+  $("countBox").classList.toggle("hidden", mode==="cards");
+  show("setup"); updateBest();
+});
+
+function show(id){ ["setup","quiz","result","cards"].forEach(s => $(s).classList.toggle("hidden", s!==id)); window.scrollTo(0,0); }
+function bestKey(){ return "fage-best-"+mode+"-"+topic; }
+function updateBest(){
+  const b = store.get(bestKey());
+  $("bestLine").textContent = (b && mode!=="cards") ? `Bisher bestes Resultat hier: ${b}%` : "";
+}
+
+function termItem(t){
+  const d = dir==="mix" ? (Math.random()<.5?"de2lat":"lat2de") : dir;
+  const pool = TERMS.filter(x => x!==t && (x[2]===t[2] || Math.random()<.15));
+  if (d==="de2lat"){
+    const w = shuffle(pool).map(x=>x[1]).filter(x=>x!==t[1]).slice(0,3);
+    return {q:`Fachbegriff für «${t[0]}»?`, a:t[1], w, e:`${t[0]} = ${t[1]}`, front:t[0], back:t[1]};
+  } else {
+    const w = shuffle(pool).map(x=>x[0]).filter(x=>x!==t[0]).slice(0,3);
+    return {q:`Was bedeutet «${t[1]}»?`, a:t[0], w, e:`${t[1]} = ${t[0]}`, front:t[1], back:t[0]};
+  }
+}
+
+function buildDeck(){
+  const inTopic = x => topic==="all" || (x.t||x[2])===topic;
+  if (mode==="quiz") return shuffle(QUESTIONS.filter(inTopic)).slice(0,count);
+  if (mode==="images") return shuffle(buildImageQuestions().filter(inTopic)).slice(0,count);
+  if (mode==="terms") return shuffle(TERMS.filter(inTopic)).slice(0,count).map(termItem);
+  // Lernkarten: Begriffe + Fragen
+  const t = TERMS.filter(inTopic).map(termItem);
+  const q = QUESTIONS.filter(inTopic).map(x=>({front:x.q, back:x.a, e:x.e}));
+  return shuffle(t.concat(q));
+}
+
+$("startBtn").onclick = () => start(buildDeck());
+
+function start(d){
+  deck = d; idx = 0; score = 0; wrong = [];
+  if (!deck.length){ alert("Keine Fragen für diese Auswahl."); return; }
+  if (mode==="cards"){ show("cards"); renderCard(); } else { show("quiz"); renderQ(); }
+}
+
+function renderQ(){
+  answered = false;
+  const it = deck[idx];
+  $("progress").style.width = (idx/deck.length*100)+"%";
+  $("qCount").textContent = `Frage ${idx+1} / ${deck.length}`;
+  $("qScore").textContent = `${score} richtig`;
+  $("qText").textContent = it.q;
+  $("qImg").innerHTML = it.svg || ""; $("qImg").classList.toggle("hidden", !it.svg);
+  $("qFb").innerHTML = ""; $("nextBtn").classList.add("hidden");
+  const opts = $("qOpts"); opts.innerHTML = "";
+  shuffle([it.a, ...it.w]).forEach(o => {
+    const b = document.createElement("button"); b.textContent = o;
+    b.onclick = () => answer(b, o===it.a);
+    opts.appendChild(b);
+  });
+}
+function answer(btn, ok){
+  if (answered) return; answered = true;
+  const it = deck[idx];
+  $("qOpts").querySelectorAll("button").forEach(b => {
+    b.disabled = true;
+    if (b.textContent===it.a) b.classList.add("ok");
+  });
+  if (ok) score++; else { btn.classList.add("bad"); wrong.push(it); }
+  $("qFb").innerHTML = `<div class="fb ${ok?"ok":"bad"}"><b>${ok?"Richtig!":"Leider falsch."}</b> ${it.e||""}</div>`;
+  $("qScore").textContent = `${score} richtig`;
+  const nb = $("nextBtn"); nb.classList.remove("hidden");
+  nb.textContent = idx+1<deck.length ? "Weiter →" : "Resultat";
+  nb.focus();
+}
+$("nextBtn").onclick = () => { idx++; idx<deck.length ? renderQ() : finish(); };
+$("quitBtn").onclick = () => { show("setup"); updateBest(); };
+
+function finish(){
+  const pct = Math.round(score/deck.length*100);
+  const prev = store.get(bestKey()) || 0;
+  if (pct>prev) store.set(bestKey(), pct);
+  $("rScore").textContent = `${score} / ${deck.length}`;
+  $("rMsg").textContent = pct===100 ? "Perfekt! 🎉" : pct>=80 ? "Sehr gut! 💪" : pct>=60 ? "Gut – noch ein bisschen üben." : "Dranbleiben – nochmals durchgehen!";
+  $("rWrongBox").classList.toggle("hidden", !wrong.length);
+  $("retryWrongBox").classList.toggle("hidden", !wrong.length);
+  $("rWrong").innerHTML = wrong.map(w=>`<li>${w.q}${w.svg?`<div class="thumb">${w.svg}</div>`:""}<b>${w.a}</b></li>`).join("");
+  show("result");
+}
+$("againBtn").onclick = () => { show("setup"); updateBest(); };
+$("retryWrongBox").onclick = () => start(shuffle(wrong));
+
+// Lernkarten
+let pile = [];
+function renderCard(){
+  if (!deck.length){ $("cFront").textContent = "Alle Karten gewusst! 🎉"; $("cBack").classList.add("hidden"); $("cHint").textContent=""; $("cCount").textContent=""; return; }
+  const c = deck[0];
+  $("cFront").textContent = c.front;
+  $("cBack").textContent = c.back + (c.e && !c.e.startsWith(c.front) ? " — " + c.e : "");
+  $("cBack").classList.add("hidden"); $("cHint").textContent = "Tippen zum Aufdecken";
+  $("cCount").textContent = `Noch ${deck.length} Karten`;
+}
+$("flash").onclick = () => { if(deck.length){ $("cBack").classList.toggle("hidden"); $("cHint").textContent=""; } };
+$("cKnow").onclick = () => { deck.shift(); renderCard(); };
+$("cAgain").onclick = () => { if(deck.length){ const c = deck.shift(); deck.splice(Math.min(deck.length, 3+Math.floor(Math.random()*4)),0,c); renderCard(); } };
+$("cBackBtn").onclick = () => show("setup");
+
+renderTopics(); updateBest();
+</script>
+</body>
+</html>
